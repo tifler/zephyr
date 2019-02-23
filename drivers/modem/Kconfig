@@ -101,4 +101,12 @@ config SYS_LOG_MODEM_LEVEL
 	  3 INFO, write SYS_LOG_INF in addition to previous levels
 	  4 DEBUG, write SYS_LOG_DBG in addition to previous levels
 
+config MODEM_DEFER_RX
+	bool "Enable deferring RX"
+
+config MODEM_RECEIVER_STACK_SIZE
+        int "Size of the stack for the modem receiver thread"
+        depends on MODEM_DEFER_RX
+        default 1024
+
 endif # MODEM

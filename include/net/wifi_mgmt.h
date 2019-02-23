@@ -71,6 +71,7 @@ enum net_event_wifi_cmd {
 struct wifi_scan_result {
 	u8_t ssid[WIFI_SSID_MAX_LEN];
 	u8_t ssid_length;
+    u8_t mac[6];
 
 	u8_t channel;
 	enum wifi_security_type security;

@@ -80,12 +80,46 @@ static void mdm_receiver_flush(struct mdm_receiver_context *ctx)
 	k_pipe_init(&ctx->uart_pipe, ctx->uart_pipe_buf, ctx->uart_pipe_size);
 }
 
+#ifdef  CONFIG_MODEM_DEFER_RX
+static void mdm_receiver_thread(void *arg1, void *arg2, void *arg3)
+{
+	int rx, ret;
+	size_t bytes_written;
+    static u8_t read_buf[MAX_READ_SIZE];
+    struct mdm_receiver_context *ctx = (struct mdm_receiver_context *)arg1;
+
+    for ( ; ; ) {
+        k_sem_take(&ctx->work_sem, K_FOREVER);
+
+        /* get all of the data off UART as fast as we can */
+        while (uart_irq_update(ctx->uart_dev) &&
+               uart_irq_rx_ready(ctx->uart_dev)) {
+            rx = uart_fifo_read(ctx->uart_dev, read_buf, sizeof(read_buf));
+            if (rx > 0) {
+                ret = k_pipe_put(&ctx->uart_pipe, read_buf, rx,
+                         &bytes_written, rx, K_NO_WAIT);
+                if (ret < 0) {
+                    SYS_LOG_ERR("UART buffer write error (%d)! "
+                            "Flushing UART!", ret);
+                    mdm_receiver_flush(ctx);
+                    break;
+                }
+
+                k_sem_give(&ctx->rx_sem);
+            }
+        }
+    }
+}
+#endif  /*CONFIG_MODEM_DEFER_RX*/
+
 static void mdm_receiver_isr(struct device *uart_dev)
 {
 	struct mdm_receiver_context *ctx;
+#ifndef CONFIG_MODEM_DEFER_RX
 	int rx, ret;
 	size_t bytes_written;
 	static u8_t read_buf[MAX_READ_SIZE];
+#endif  /*!CONFIG_MODEM_DEFER_RX*/
 
 	/* lookup the device */
 	ctx = context_from_dev(uart_dev);
@@ -93,6 +127,9 @@ static void mdm_receiver_isr(struct device *uart_dev)
 		return;
 	}
 
+#ifdef  CONFIG_MODEM_DEFER_RX
+    k_sem_give(&ctx->work_sem);
+#else
 	/* get all of the data off UART as fast as we can */
 	while (uart_irq_update(ctx->uart_dev) &&
 	       uart_irq_rx_ready(ctx->uart_dev)) {
@@ -110,6 +147,7 @@ static void mdm_receiver_isr(struct device *uart_dev)
 			k_sem_give(&ctx->rx_sem);
 		}
 	}
+#endif  /*0*/
 }
 
 int mdm_receiver_recv(struct mdm_receiver_context *ctx,
@@ -181,6 +219,12 @@ int mdm_receiver_register(struct mdm_receiver_context *ctx,
 	ctx->uart_pipe_buf = buf;
 	ctx->uart_pipe_size = size;
 	k_sem_init(&ctx->rx_sem, 0, 1);
+#ifdef  CONFIG_MODEM_DEFER_RX
+	k_sem_init(&ctx->work_sem, 0, 1);
+    k_thread_create(&ctx->thread, &ctx->thread_stack,
+            CONFIG_MODEM_RECEIVER_STACK_SIZE, mdm_receiver_thread, ctx,
+            NULL, NULL, K_PRIO_COOP(2), 0, 0);
+#endif  /*CONFIG_MODEM_DEFER_RX*/
 
 	ret = mdm_receiver_get(ctx);
 	if (ret < 0) {

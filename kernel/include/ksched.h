@@ -243,7 +243,7 @@ static inline void _ready_one_thread(_wait_q_t *wq)
 static inline void _sched_lock(void)
 {
 #ifdef CONFIG_PREEMPT_ENABLED
-	__ASSERT(!_is_in_isr(), "");
+	//__ASSERT(!_is_in_isr(), "");
 	__ASSERT(_current->base.sched_locked != 1, "");
 
 	--_current->base.sched_locked;

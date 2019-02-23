@@ -30,6 +30,13 @@ struct mdm_receiver_context {
 	struct k_pipe uart_pipe;
 	struct k_sem rx_sem;
 
+#ifdef  CONFIG_MODEM_DEFER_RX
+    /* deferring */
+	struct k_sem work_sem;
+    struct k_thread thread;
+    K_THREAD_STACK_MEMBER(thread_stack, CONFIG_MODEM_RECEIVER_STACK_SIZE);
+#endif  /*CONFIG_MODEM_DEFER_RX*/
+
 	/* modem data */
 	char *data_manufacturer;
 	char *data_model;

@@ -414,7 +414,7 @@ void k_sched_unlock(void)
 {
 #ifdef CONFIG_PREEMPT_ENABLED
 	__ASSERT(_current->base.sched_locked != 0, "");
-	__ASSERT(!_is_in_isr(), "");
+	//__ASSERT(!_is_in_isr(), "");
 
 	LOCKED(&sched_lock) {
 		++_current->base.sched_locked;
